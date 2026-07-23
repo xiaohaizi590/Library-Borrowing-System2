@@ -14,11 +14,20 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
       - ./init_books.sql:/docker-entrypoint-initdb.d/01-init-books.sql
+    command: >
+      --innodb-buffer-pool-size=128M
+      --innodb-log-buffer-size=8M
+      --max-connections=20
+      --innodb-flush-log-at-trx-commit=2
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 300M
 
   # ==================== Redis 缓存 ====================
   redis:
@@ -32,6 +41,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 64M
 
   # ==================== r-nacos 注册/配置中心 ====================
   r-nacos:
@@ -46,6 +59,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
 
   # ==================== Java 后端 ====================
   backend:
@@ -64,6 +81,7 @@ services:
       REDIS_PORT: 6379
       NACOS_SERVER_ADDR: r-nacos:8848
       NACOS_NAMESPACE: public
+      JAVA_TOOL_OPTIONS: "-Xmx128m -Xms64m"
     depends_on:
       mysql:
         condition: service_healthy
@@ -71,6 +89,10 @@ services:
         condition: service_healthy
       r-nacos:
         condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   # ==================== Nginx 前端 ====================
   frontend:
@@ -83,6 +105,10 @@ services:
       - "80:80"
     depends_on:
       - backend
+    deploy:
+      resources:
+        limits:
+          memory: 64M
 
 volumes:
   mysql-data:
