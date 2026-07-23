@@ -27,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import com.wf.captcha.SpecCaptcha;
-import java.awt.Font;
 import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
@@ -190,7 +189,6 @@ public class UserServiceImpl implements UserService {
     public Map<String, String> generateCaptcha(){
         //生成校验码
         SpecCaptcha captcha = new SpecCaptcha(130, 48, 4);//验证码宽度、高度、字符数
-        captcha.setFont(new Font("Arial", Font.PLAIN, 32));//设置字体,可以回退为默认字体
         String captchaKey = UUID.randomUUID().toString();//生成验证码key
         String text = captcha.text().toLowerCase();//获取验证码文本并转换为小写
         //将验证码文本缓存到redis
