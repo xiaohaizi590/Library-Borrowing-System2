@@ -85,10 +85,10 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public LoginResponse login(LoginRequest request, String ip) {
         String username = request.getAccount();
-        String captchaKey = request.getCaptchaKey();
-        String captchaText = request.getCaptcha();
-           // 验证验证码
-        verifyCaptcha(captchaKey, captchaText);
+//        String captchaKey = request.getCaptchaKey();
+//        String captchaText = request.getCaptcha();
+//           // 验证验证码
+//        verifyCaptcha(captchaKey, captchaText);
 
         // 检查账号是否被锁定
         if (loginAttemptService.isExceeded(username, ip)) {

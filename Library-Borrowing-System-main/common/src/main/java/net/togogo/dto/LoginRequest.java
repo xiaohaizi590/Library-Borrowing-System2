@@ -16,12 +16,12 @@ public class LoginRequest {
     @Size(min = 6, max = 20, message = "密码长度必须在6到20个字符之间")
     private String password;
 
-    @NotBlank(message = "验证码不能为空")
-    private String captcha;
-
-    //验证码key
-    @NotBlank(message = "验证码不能为空")
-    private String captchaKey;
+//    @NotBlank(message = "验证码不能为空")
+//    private String captcha;
+//
+//    //验证码key
+//    @NotBlank(message = "验证码不能为空")
+//    private String captchaKey;
 
 
 

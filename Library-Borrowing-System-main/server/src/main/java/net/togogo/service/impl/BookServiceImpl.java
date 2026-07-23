@@ -122,6 +122,8 @@ public class BookServiceImpl implements BookService {
 
     @Override
     @Transactional
+    // 清除缓存
+    // 清除缓存已由 @CacheEvict 注解处理
     @CacheEvict(value = {"books", "books:all", "books:search"}, allEntries = true)
     public void deleteBook(Long id) {
         Book book = bookRepository.findById(id)
@@ -133,6 +135,7 @@ public class BookServiceImpl implements BookService {
         }
 
         bookRepository.delete(book);
+
     }
 
 }
