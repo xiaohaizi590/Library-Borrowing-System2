@@ -22,6 +22,9 @@ RUN mvn clean package -DskipTests -B
 # ========== Stage 2: 运行 JAR ==========
 FROM eclipse-temurin:21-jre-alpine
 
+# 安装字体（验证码依赖 Arial 字体）
+RUN apk add --no-cache fontconfig ttf-dejavu
+
 WORKDIR /app
 
 # 从构建阶段复制 JAR
