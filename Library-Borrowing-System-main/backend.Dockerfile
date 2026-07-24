@@ -23,7 +23,7 @@ RUN mvn clean package -DskipTests -B
 FROM eclipse-temurin:21-jre-alpine
 
 # 安装字体（验证码依赖 Arial 字体）
-RUN apk add --no-cache fontconfig ttf-dejavu curl
+RUN apk add --no-cache fontconfig ttf-dejavu
 
 WORKDIR /app
 
