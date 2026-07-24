@@ -127,22 +127,22 @@ public class UserController {
         return Result.success(userDTO);
     }
 
-//    @GetMapping("/captcha")
-//    public Result<Map<String, String>> getCaptcha() {
-//        Map<String, String> captcha = userService.generateCaptcha();
-//        return Result.success(captcha);
-//    }//获取验证码
-//    //校验验证码
-//    @PostMapping("/captcha/verify")
-//    public Result<Boolean> verifyCaptcha(@RequestBody Map<String, String> request) {
-//        String captchaKey = request.get("captchaKey");
-//        String inputCaptcha = request.get("captcha");
-//
-//        if (captchaKey == null || inputCaptcha == null) {
-//            return Result.error(400, "验证码参数不能为空");
-//        }
-//       userService.verifyCaptcha(captchaKey, inputCaptcha);
-//        return Result.success("验证成功", true);
-//    }
+    @GetMapping("/captcha")
+    public Result<Map<String, String>> getCaptcha() {
+        Map<String, String> captcha = userService.generateCaptcha();
+        return Result.success(captcha);
+    }//获取验证码
+    //校验验证码
+    @PostMapping("/captcha/verify")
+    public Result<Boolean> verifyCaptcha(@RequestBody Map<String, String> request) {
+        String captchaKey = request.get("captchaKey");
+        String inputCaptcha = request.get("captcha");
+
+        if (captchaKey == null || inputCaptcha == null) {
+            return Result.error(400, "验证码参数不能为空");
+        }
+       userService.verifyCaptcha(captchaKey, inputCaptcha);
+        return Result.success("验证成功", true);
+    }
 
 }

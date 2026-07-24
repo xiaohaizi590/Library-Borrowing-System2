@@ -38,7 +38,6 @@
           </div>
         </div>
 
-        <!--
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">验证码</label>
           <div class="flex items-center gap-3">
@@ -61,7 +60,6 @@
             </div>
           </div>
         </div>
-        -->
 
         <div v-if="error" class="text-red-500 text-sm text-center">{{ error }}</div>
 
@@ -89,10 +87,10 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { BookOpen, User, Lock, Loader2 } from 'lucide-vue-next'
-import { login } from '../services/userService'
+import { login, getCaptcha } from '../services/userService'
 import { setToken, setUser } from '../utils/auth'
 
 const router = useRouter()
@@ -101,8 +99,28 @@ const error = ref('')
 
 const form = reactive({
   account: '',
-  password: ''
+  password: '',
+  captcha: '',
+  captchaKey: ''
 })
+
+const captchaImage = ref('')
+
+onMounted(() => {
+  loadCaptcha()
+})
+
+async function loadCaptcha() {
+  try {
+    const res = await getCaptcha()
+    if (res.code === 200) {
+      captchaImage.value = res.data.image
+      form.captchaKey = res.data.captchaKey
+    }
+  } catch (err) {
+    console.error('加载验证码失败:', err)
+  }
+}
 
 async function handleLogin() {
   loading.value = true
