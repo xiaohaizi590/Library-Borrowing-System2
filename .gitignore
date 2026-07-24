@@ -38,3 +38,6 @@ build/
 node_modules/
 dist/
 *.log
+
+# Docker 镜像导出文件
+docker-images/

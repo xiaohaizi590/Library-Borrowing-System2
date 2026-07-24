@@ -41,3 +41,6 @@ build/
 node_modules/
 dist/
 *.log
+
+# Docker 镜像导出文件（用于离线部署，不提交到 Git）
+docker-images/
