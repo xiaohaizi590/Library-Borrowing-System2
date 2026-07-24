@@ -1,17 +1,17 @@
 spring:
   application:
     name: nacon7-server
-  config:
-    import: optional:nacos:application.yaml?refresh=true
-  cloud:
-    nacos:
-      discovery:
-        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
-        namespace: ${NACOS_NAMESPACE:public}
-      config:
-        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
-        namespace: ${NACOS_NAMESPACE:public}
-        file-extension: yaml
+#  config:
+#    import: optional:nacos:application.yaml?refresh=true
+#  cloud:
+#    nacos:
+#      discovery:
+#        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+#        namespace: ${NACOS_NAMESPACE:public}
+#      config:
+#        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+#        namespace: ${NACOS_NAMESPACE:public}
+#        file-extension: yaml
 
   data:
     redis:
