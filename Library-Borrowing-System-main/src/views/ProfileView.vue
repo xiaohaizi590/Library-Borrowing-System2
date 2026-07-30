@@ -69,14 +69,52 @@
           <span class="text-gray-800">{{ user?.role === 'ADMIN' ? '管理员' : '普通用户' }}</span>
         </div>
       </div>
+      <button
+          @click="showChangePwdModal = true"
+          class="flex items-center space-x-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 mr-2"
+      >
+        <Lock class="w-4 h-4" />
+        <span>修改密码</span>
+      </button>
     </div>
+
+    <Modal :visible="showChangePwdModal" title="修改密码" @close="showChangePwdModal = false">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">原密码</label>
+          <input v-model="changePwdForm.oldPassword" type="password"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            placeholder="请输入原密码" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">新密码</label>
+          <input v-model="changePwdForm.newPassword" type="password"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            placeholder="请输入新密码（至少6位）" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">确认新密码</label>
+          <input v-model="changePwdForm.confirmPassword" type="password"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            placeholder="请再次输入新密码" />
+        </div>
+        <div class="flex justify-end space-x-3 pt-2">
+          <button @click="showChangePwdModal = false"
+            class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">取消</button>
+          <button @click="handleChangePassword"
+            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+            :disabled="changingPwd">确认</button>
+        </div>
+      </div>
+    </Modal>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { User, Mail, Phone, Calendar, Shield, RefreshCw } from 'lucide-vue-next'
-import { getProfile } from '../services/userService'
+import { User, Mail, Phone, Calendar, Shield, RefreshCw, Lock } from 'lucide-vue-next'
+import { getProfile, changePassword } from '../services/userService'
+import Modal from '../components/Modal.vue'
 import { getUser } from '../utils/auth'
 import PageHeader from '../components/PageHeader.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
@@ -120,4 +158,45 @@ function handleRefresh() {
 onMounted(() => {
   fetchProfile()
 })
+
+const showChangePwdModal = ref(false)
+const changingPwd = ref(false)
+const changePwdForm = ref({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+
+async function handleChangePassword() {
+  const { oldPassword, newPassword, confirmPassword } = changePwdForm.value
+
+  if (!oldPassword || !newPassword || !confirmPassword) {
+    alert('请填写所有字段')
+    return
+  }
+  if (newPassword.length < 6) {
+    alert('新密码长度至少6位')
+    return
+  }
+  if (newPassword !== confirmPassword) {
+    alert('两次输入的密码不一致')
+    return
+  }
+
+  changingPwd.value = true
+  try {
+    const res = await changePassword({ oldPassword, newPassword, confirmPassword })
+    if (res.code === 200) {
+      alert('密码修改成功')
+      showChangePwdModal.value = false
+      changePwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
+    } else {
+      alert(res.message || '修改失败')
+    }
+  } catch (err) {
+    alert(err.response?.data?.message || '修改失败，请检查网络')
+  } finally {
+    changingPwd.value = false
+  }
+}
 </script>

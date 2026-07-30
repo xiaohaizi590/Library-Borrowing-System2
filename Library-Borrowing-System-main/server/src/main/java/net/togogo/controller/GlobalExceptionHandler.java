@@ -6,7 +6,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.security.access.AccessDeniedException;
 import net.togogo.common.Result;
 import net.togogo.common.BusinessException;
+import net.togogo.common.RateLimitException;
 import net.togogo.common.ResultCode;
+import net.togogo.security.RateLimitFilter;
 
 
 @RestControllerAdvice
@@ -25,6 +27,11 @@ public class GlobalExceptionHandler {
    @ExceptionHandler(AccessDeniedException.class)
    public Result<Void> handleAccessDeniedException(AccessDeniedException e) {
        return Result.error(ResultCode.FORBIDDEN);
+   }
+   //5,限流异常
+   @ExceptionHandler(RateLimitException.class)
+   public Result<Void> handleRateLimitException(RateLimitException e) {
+       return Result.error(e.getCode(), e.getMessage());
    }
    //4,其他异常
    @ExceptionHandler(Exception.class)

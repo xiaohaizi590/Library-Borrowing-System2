@@ -39,3 +39,25 @@ export function getCaptcha() {
 export function verifyCaptcha(data) {
   return api.post('/users/captcha/verify', data)
 }
+
+export function getDeletedUsers(page, size) {
+  return api.get('/users/recycleBin', { params: { page, size } })
+}
+
+export function restoreUser(id) {
+  return api.put(`/users/restore/${id}`)
+}
+
+export function cleanExpiredUsers(retentionDays = 30) {
+  return api.delete('/users/cleanExpired', { params: { retentionDays } })
+}
+// 用户自己改密码
+export function changePassword(data) {
+  return api.put('/users/password', data)
+}
+
+// 管理员重置密码
+export function resetPassword(id, data) {
+  return api.put(`/users/${id}/password`, data)
+}
+

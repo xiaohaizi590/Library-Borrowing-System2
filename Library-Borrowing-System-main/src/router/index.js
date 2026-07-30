@@ -52,6 +52,12 @@ const routes = [
         name: 'BorrowManage',
         component: () => import('../views/BorrowManageView.vue'),
         meta: { requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: 'recycle-bin',
+        name: 'RecycleBin',
+        component: () => import('../views/RecycleBinView.vue'),
+        meta: { requiresAuth: true, requiresAdmin: true }
       }
     ]
   }

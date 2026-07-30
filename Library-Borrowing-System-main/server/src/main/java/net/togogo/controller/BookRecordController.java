@@ -1,7 +1,5 @@
 package net.togogo.controller;
 
-import java.util.List;
-
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -56,6 +54,8 @@ public class BookRecordController {
             @PathVariable Long userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
+        page = Math.max(0, Math.min(page, 100));
+        size = Math.max(1, Math.min(size, 100));
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "borrowTime"));
         PageResponse<BorrowRecordDTO> records = bookRecordService.getBorrowRecordsByUser(userId, pageable);
         return Result.success(records);
@@ -63,8 +63,14 @@ public class BookRecordController {
 
     @GetMapping("/borrowRecords/book/{bookId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public Result<List<BorrowRecordDTO>> getBorrowRecordsByBook(@PathVariable Long bookId) {
-        List<BorrowRecordDTO> records = bookRecordService.getBorrowRecordsByBook(bookId);
+    public Result<PageResponse<BorrowRecordDTO>> getBorrowRecordsByBook(
+            @PathVariable Long bookId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        page = Math.max(0, Math.min(page, 100));
+        size = Math.max(1, Math.min(size, 100));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "borrowTime"));
+        PageResponse<BorrowRecordDTO> records = bookRecordService.getBorrowRecordsByBook(bookId, pageable);
         return Result.success(records);
     }
 
@@ -73,6 +79,8 @@ public class BookRecordController {
     public Result<PageResponse<BorrowRecordDTO>> getAllBorrowRecords(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
+        page = Math.max(0, Math.min(page, 100));
+        size = Math.max(1, Math.min(size, 100));
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "borrowTime"));
         PageResponse<BorrowRecordDTO> records = bookRecordService.getAllBorrowRecords(pageable);
         return Result.success(records);
@@ -83,6 +91,9 @@ public class BookRecordController {
     public Result<PageResponse<BorrowRecordDTO>> getOverdueRecords(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
+                //分页参数保护，防止无效分页参数
+        page = Math.max(0, Math.min(page, 100));
+        size = Math.max(1, Math.min(size, 100));//以后可以如果多的话，可以进行全局管理
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "borrowTime"));
         PageResponse<BorrowRecordDTO> records = bookRecordService.getOverdueRecords(pageable);
         return Result.success(records);

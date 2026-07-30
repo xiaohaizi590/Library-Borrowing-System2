@@ -8,6 +8,13 @@
         <Plus class="w-4 h-4" />
         <span>添加图书</span>
       </button>
+      <button
+        @click="handleBatchImport"
+        class="flex items-center space-x-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+      >
+        <Upload class="w-4 h-4" />
+        <span>Excel文件批量导入图书</span>
+      </button>
     </PageHeader>
 
     <LoadingSpinner v-if="loading" />
@@ -150,13 +157,77 @@
         </div>
       </form>
     </Modal>
+
+    <!-- 批量导入图书弹窗 -->
+    <Modal :visible="showBatchImportModal" title="批量导入图书" @close="closeBatchImportModal">
+      <div class="space-y-4">
+        <div v-if="!importTaskId">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">选择 Excel 文件</label>
+            <input
+              ref="fileInputRef"
+              type="file"
+              accept=".xlsx,.xls"
+              @change="handleFileChange"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+            <p v-if="selectedFile" class="mt-2 text-sm text-green-600">已选择: {{ selectedFile.name }}</p>
+            <p class="mt-1 text-xs text-gray-400">支持 .xlsx / .xls 格式，大文件将自动使用异步导入</p>
+          </div>
+          <div v-if="batchImportError" class="text-red-500 text-sm">{{ batchImportError }}</div>
+          <div class="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              @click="closeBatchImportModal"
+              class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              @click="confirmBatchImport"
+              :disabled="!selectedFile || batchImportLoading"
+              class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50"
+            >
+              {{ batchImportLoading ? '提交中...' : '开始导入' }}
+            </button>
+          </div>
+        </div>
+
+        <div v-else>
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-medium text-blue-800">导入进度</span>
+              <span class="text-sm text-blue-600">{{ importStatus }}</span>
+            </div>
+            <div class="w-full bg-blue-200 rounded-full h-2.5">
+              <div
+                class="bg-blue-500 h-2.5 rounded-full transition-all duration-500"
+                :style="{ width: importProgressPercent + '%' }"
+              ></div>
+            </div>
+            <p class="mt-3 text-xs text-gray-500">任务ID: {{ importTaskId }}</p>
+          </div>
+
+          <div v-if="importDone" class="flex justify-end pt-4">
+            <button
+              type="button"
+              @click="closeBatchImportModal"
+              class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            >
+              完成
+            </button>
+          </div>
+        </div>
+      </div>
+    </Modal>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { Plus } from 'lucide-vue-next'
-import { getAllBooks, createBook, updateBook, deleteBook } from '../services/bookService'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { Plus, Upload } from 'lucide-vue-next'
+import { getAllBooks, createBook, updateBook, deleteBook, batchImportFromExcel, batchImportFromExcelAsync, getImportProgress } from '../services/bookService'
 import PageHeader from '../components/PageHeader.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import Pagination from '../components/Pagination.vue'
@@ -287,7 +358,116 @@ async function handleSubmit() {
   }
 }
 
+const showBatchImportModal = ref(false)
+const selectedFile = ref(null)
+const fileInputRef = ref(null)
+const batchImportLoading = ref(false)
+const batchImportError = ref('')
+
+const importTaskId = ref(null)
+const importStatus = ref('')
+const importProgressPercent = ref(0)
+const importDone = ref(false)
+let progressTimer = null
+
+function handleBatchImport() {
+  resetImportState()
+  selectedFile.value = null
+  batchImportError.value = ''
+  showBatchImportModal.value = true
+}
+
+function closeBatchImportModal() {
+  stopProgressPolling()
+  resetImportState()
+  showBatchImportModal.value = false
+}
+
+function resetImportState() {
+  importTaskId.value = null
+  importStatus.value = ''
+  importProgressPercent.value = 0
+  importDone.value = false
+}
+
+function stopProgressPolling() {
+  if (progressTimer) {
+    clearInterval(progressTimer)
+    progressTimer = null
+  }
+}
+
+function handleFileChange(event) {
+  selectedFile.value = event.target.files[0] || null
+}
+
+async function confirmBatchImport() {
+  if (!selectedFile.value) return
+  batchImportLoading.value = true
+  batchImportError.value = ''
+
+  try {
+    const response = await batchImportFromExcelAsync(selectedFile.value)
+    if (response.code === 200 && response.data && response.data.taskId) {
+      importTaskId.value = response.data.taskId
+      importStatus.value = response.data.message || '任务已提交'
+      startProgressPolling(response.data.taskId)
+    } else {
+      batchImportError.value = response.message || '导入失败'
+    }
+  } catch (err) {
+    batchImportError.value = err.response?.data?.message || '导入失败，请检查文件格式'
+  } finally {
+    batchImportLoading.value = false
+  }
+}
+
+function startProgressPolling(taskId) {
+  importProgressPercent.value = 10
+  let pollCount = 0
+  const maxPolls = 120
+
+  progressTimer = setInterval(async () => {
+    pollCount++
+    if (pollCount > maxPolls) {
+      stopProgressPolling()
+      importStatus.value = '导入超时，请稍后刷新列表查看'
+      importDone.value = true
+      return
+    }
+
+    try {
+      const res = await getImportProgress(taskId)
+      if (res.code === 200 && res.data) {
+        const statusText = res.data.status || ''
+        importStatus.value = statusText
+
+        if (statusText.includes('解析中')) {
+          importProgressPercent.value = 20
+        } else if (statusText.includes('开始导入') || statusText.includes('解析完成')) {
+          importProgressPercent.value = 50
+        } else if (statusText.includes('成功导入')) {
+          importProgressPercent.value = 100
+          importDone.value = true
+          stopProgressPolling()
+          fetchBooks(currentPage.value)
+        } else if (statusText.includes('失败') || statusText.includes('错误')) {
+          importProgressPercent.value = 0
+          importDone.value = true
+          stopProgressPolling()
+        }
+      }
+    } catch (err) {
+      console.error('查询进度失败:', err)
+    }
+  }, 2000)
+}
+
 onMounted(() => {
   fetchBooks()
+})
+
+onUnmounted(() => {
+  stopProgressPolling()
 })
 </script>

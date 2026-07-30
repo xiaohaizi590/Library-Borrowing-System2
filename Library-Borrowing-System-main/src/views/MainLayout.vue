@@ -57,13 +57,22 @@
           </router-link>
 
           <router-link
-            to="/borrow-manage"
-            class="nav-link"
-            :class="{ 'bg-blue-50 text-blue-600': $route.name === 'BorrowManage' }"
-          >
-            <ClipboardList class="w-5 h-5" />
-            <span>借阅管理</span>
-          </router-link>
+          to="/borrow-manage"
+          class="nav-link"
+          :class="{ 'bg-blue-50 text-blue-600': $route.name === 'BorrowManage' }"
+        >
+          <ClipboardList class="w-5 h-5" />
+          <span>借阅管理</span>
+        </router-link>
+
+        <router-link
+          to="/recycle-bin"
+          class="nav-link"
+          :class="{ 'bg-blue-50 text-blue-600': $route.name === 'RecycleBin' }"
+        >
+          <Trash2 class="w-5 h-5" />
+          <span>回收站</span>
+        </router-link>
         </div>
       </nav>
 
@@ -103,7 +112,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { BookOpen, BookMarked, BookOpenCheck, User, Library, Users, ClipboardList, LogOut } from 'lucide-vue-next'
+import { BookOpen, BookMarked, BookOpenCheck, User, Library, Users, ClipboardList, LogOut, Trash2 } from 'lucide-vue-next'
 import { getUser, isAdmin, removeToken, removeUser } from '../utils/auth'
 
 const router = useRouter()

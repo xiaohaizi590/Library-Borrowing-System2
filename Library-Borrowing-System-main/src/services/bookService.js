@@ -55,3 +55,35 @@ export function getAllBorrowRecords(page, size) {
 export function getOverdueRecords(page, size) {
   return api.get('/book-records/overdue', { params: { page, size } })
 }
+export function getDeletedBooks(page, size) {
+  return api.get('/books/recycleBin', { params: { page, size } })
+}
+
+export function restoreBook(id) {
+  return api.put(`/books/restore/${id}`)
+}
+
+export function cleanExpiredBooks(retentionDays = 30) {
+  return api.delete('/books/cleanExpired', { params: { retentionDays } })
+}
+
+export function batchImportFromExcel(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return api.post('/books/batch-import', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
+export function batchImportFromExcelAsync(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return api.post('/books/batch-import-async', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
+export function getImportProgress(taskId) {
+  return api.get(`/books/batch-import/progress/${taskId}`)
+}
+

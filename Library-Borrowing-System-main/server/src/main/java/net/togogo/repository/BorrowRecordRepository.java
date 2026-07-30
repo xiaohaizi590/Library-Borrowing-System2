@@ -14,6 +14,7 @@ public interface BorrowRecordRepository extends JpaRepository<BorrowRecord, Long
     List<BorrowRecord> findByUserIdOrderByBorrowTimeDesc(Long userId);
     Page<BorrowRecord> findByUserId(Long userId, Pageable pageable);
     List<BorrowRecord> findByBookIdOrderByBorrowTimeDesc(Long bookId);
+    Page<BorrowRecord> findByBookId(Long bookId, Pageable pageable);
     List<BorrowRecord> findByStatusOrderByBorrowTimeDesc(BorrowRecord.Borrowstatus status);
     List<BorrowRecord> findByStatusAndDueTimeBefore(BorrowRecord.Borrowstatus status, LocalDateTime time);
     Page<BorrowRecord> findByStatusAndDueTimeBefore(BorrowRecord.Borrowstatus status, LocalDateTime time, Pageable pageable);

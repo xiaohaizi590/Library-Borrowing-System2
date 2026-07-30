@@ -29,6 +29,13 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatDateTime(user.createTime) }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
               <button
+                @click="openResetPwdModal(user)"
+                :disabled="user.role === 'ADMIN'"
+                :class="user.role === 'ADMIN' ? 'text-gray-400 cursor-not-allowed' : 'text-blue-600 hover:text-blue-900 px-3 py-1 bg-blue-50 rounded hover:bg-blue-100 mr-2'"
+              >
+                重置密码
+              </button>
+              <button
                 @click="handleDelete(user)"
                 :disabled="user.role === 'ADMIN'"
                 :class="user.role === 'ADMIN' ? 'text-gray-400 cursor-not-allowed' : 'text-red-600 hover:text-red-900 px-3 py-1 bg-red-50 rounded hover:bg-red-100'"
@@ -47,12 +54,31 @@
       @prev="prevPage"
       @next="nextPage"
     />
+
+    <Modal :visible="showResetPwdModal" :title="'重置密码 - ' + resetPwdUser?.username" @close="showResetPwdModal = false">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">新密码</label>
+          <input v-model="resetPwdForm.newPassword" type="password"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            placeholder="请输入新密码（至少6位）" />
+        </div>
+        <div class="flex justify-end space-x-3 pt-2">
+          <button @click="showResetPwdModal = false"
+            class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">取消</button>
+          <button @click="handleResetPassword"
+            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+            :disabled="resettingPwd">确认</button>
+        </div>
+      </div>
+    </Modal>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getAllUsers, deleteUser } from '../services/userService'
+import { getAllUsers, deleteUser, resetPassword } from '../services/userService'
+import Modal from '../components/Modal.vue'
 import PageHeader from '../components/PageHeader.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import Pagination from '../components/Pagination.vue'
@@ -117,4 +143,43 @@ function handleDelete(user) {
 onMounted(() => {
   fetchUsers()
 })
+
+const showResetPwdModal = ref(false)
+const resettingPwd = ref(false)
+const resetPwdUser = ref(null)
+const resetPwdForm = ref({ newPassword: '' })
+
+function openResetPwdModal(user) {
+  resetPwdUser.value = user
+  resetPwdForm.value = { newPassword: '' }
+  showResetPwdModal.value = true
+}
+
+async function handleResetPassword() {
+  const { newPassword } = resetPwdForm.value
+
+  if (!newPassword) {
+    alert('请输入新密码')
+    return
+  }
+  if (newPassword.length < 6) {
+    alert('新密码长度至少6位')
+    return
+  }
+
+  resettingPwd.value = true
+  try {
+    const res = await resetPassword(resetPwdUser.value.id, { newPassword })
+    if (res.code === 200) {
+      alert('密码重置成功')
+      showResetPwdModal.value = false
+    } else {
+      alert(res.message || '重置失败')
+    }
+  } catch (err) {
+    alert(err.response?.data?.message || '重置失败，请检查网络')
+  } finally {
+    resettingPwd.value = false
+  }
+}
 </script>

@@ -6,11 +6,13 @@ import lombok.Getter;
 public enum ResultCode {
 
     SUCCESS(200, "操作成功"),
-    BAD_REQUEST(400, "参数错误"),
+    BAD_REQUEST(400,  "两次输入的密码不一致"),
     UNAUTHORIZED(401, "未认证"),
     FORBIDDEN(403, "权限不足"),
     NOT_FOUND(404, "资源不存在"),
+    RATE_LIMIT_EXCEEDED(429, "请求频率超过限制"),
     INTERNAL_ERROR(500, "系统错误"),
+   
 
     // 业务状态码
     USERNAME_EXIST(1001, "用户名已存在"),
@@ -22,7 +24,8 @@ public enum ResultCode {
     EMAIL_EXIST(1007, "邮箱已存在"),
     ACCOUNT_LOCKED(1008, "账号已被锁定，请5分钟后重试"),
     CAPTCHA_ERROR(1009, "验证码错误"),
-    CAPTCHA_EXPIRED(1010, "验证码已过期，请重新获取"),
+    CAPTCHA_EXPIRED(1010, "验证码已过期，请重新获取"), 
+    ADMIN_CANNOT_DELETE(1011, "管理员不能被删除"),
 
     // 图书相关状态码
     BOOK_ISBN_EXIST(2001, "ISBN已存在"),

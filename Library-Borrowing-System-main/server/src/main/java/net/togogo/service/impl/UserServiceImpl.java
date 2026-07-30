@@ -3,17 +3,21 @@ package net.togogo.service.impl;
 import lombok.RequiredArgsConstructor;
 import net.togogo.common.BusinessException;
 import net.togogo.common.ResultCode;
+import net.togogo.dto.ChangePasswordRequest;
 import net.togogo.dto.LoginRequest;
 import net.togogo.dto.LoginResponse;
 import net.togogo.dto.PageResponse;
 import net.togogo.dto.RegisterRequest;
+import net.togogo.dto.ResetPasswordRequest;
 import net.togogo.dto.UpdateUserRequest;
 import net.togogo.dto.UserDTO;
 import net.togogo.entity.User;
+import net.togogo.entity.UserArchive;
 import net.togogo.repository.UserRepository;
 import net.togogo.security.JwtUtil;
 import net.togogo.service.UserService;
 import net.togogo.util.PasswordUtil;
+
 import net.togogo.service.LoginAttemptService;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -22,6 +26,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import net.togogo.repository.UserArchiveRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -32,6 +37,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import net.togogo.mapper.UserMapper;
+import java.time.LocalDateTime;
 
 @Service("userServiceImpl")
 @RequiredArgsConstructor
@@ -44,6 +50,8 @@ public class UserServiceImpl implements UserService {
     private final LoginAttemptService loginAttemptService;
     // 注入 RedisTemplate
     private final RedisTemplate<String, String> redisTemplate;
+    // 注入 UserArchiveRepository
+    private final UserArchiveRepository userArchiveRepository;
 
     // Lua 脚本：原子校验并删除验证码，返回 -1=过期 0=错误 1=成功
     private static final DefaultRedisScript<Long> VERIFY_CAPTCHA_SCRIPT = new DefaultRedisScript<>(
@@ -154,12 +162,53 @@ public class UserServiceImpl implements UserService {
     @Transactional
     @CacheEvict(value = "users", allEntries = true)
     public void deleteUser(Long id) {
-        if (!userRepository.existsById(id)) {
-            throw new BusinessException(ResultCode.NOT_FOUND);
-        }
-        userRepository.deleteById(id);
+    User user = userRepository.findById(id)
+            .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND));
+    // 新增：管理员不能被删除
+    if (user.getRole() == User.Role.ADMIN) {
+        throw new BusinessException(ResultCode.ADMIN_CANNOT_DELETE);
     }
 
+    // 新增：先保存到归档表
+    UserArchive archive = UserArchive.fromUser(user);
+    userArchiveRepository.save(archive);
+
+    // 再删除原记录
+    userRepository.delete(user);
+}
+    //添加恢复的方法
+    @Override
+    @Transactional
+    @CacheEvict(value = "users", allEntries = true)
+    public UserDTO restoreUser(Long id) {
+        UserArchive archive = userArchiveRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND));
+        archive.markAsRestored();
+        userArchiveRepository.save(archive);
+
+        User user = User.builder()
+                .username(archive.getUsername())
+                .password(archive.getPassword())
+                .email(archive.getEmail())
+                .phone(archive.getPhone())
+                .build();
+        User restored = userRepository.save(user);
+        return UserMapper.toDTO(restored);
+    }
+    @Override
+    public PageResponse<UserDTO> getDeletedUsers(Pageable pageable) {
+        Page<UserDTO> page = userArchiveRepository.findByStatusOrderByDeleteTimeDesc("DELETED", pageable)
+                .map(archive -> UserMapper.toDTO(archive.toUser()));
+        return PageResponse.from(page);
+    }
+    //添加删除已经删除的用户的方法
+    @Override
+    @Transactional
+    @CacheEvict(value = "users", allEntries = true)
+    public void cleanExpiredUsers(int retentionDays) {
+        LocalDateTime threshold = LocalDateTime.now().minusDays(retentionDays);
+        userArchiveRepository.deleteByDeleteTimeBefore(threshold);
+    }
 
     @Override
     @Transactional
@@ -196,6 +245,46 @@ public class UserServiceImpl implements UserService {
         return Map.of("captchaKey", captchaKey, "image", captcha.toBase64());//返回验证码key和base64编码的验证码图片
 
     }
+    @Override
+    @Transactional
+    @CacheEvict(value = "users", allEntries = true)
+    public void changePassword(ChangePasswordRequest request) { 
+    // 1. 取当前登录用户
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    String username = auth.getName();
+
+    // 2. 查询用户
+    User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new BusinessException(ResultCode.USER_NOT_FOUND));
+
+    // 3. 校验新密码与确认密码一致
+    if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+        throw new BusinessException(ResultCode.BAD_REQUEST);
+    }
+
+    // 4. 校验原密码
+    if (!PasswordUtil.matches(request.getOldPassword(), user.getPassword())) {
+        throw new BusinessException(ResultCode.PASSWORD_ERROR);
+    }
+
+    // 5. 加密并保存新密码
+    user.setPassword(PasswordUtil.encode(request.getNewPassword()));
+    userRepository.save(user);
+    }
+    @Override
+    @Transactional
+    @CacheEvict(value = "users", allEntries = true)
+    public void resetPassword(Long userId, ResetPasswordRequest request) {
+    // 1. 查询目标用户
+    User user = userRepository.findById(userId)
+            .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND));
+
+    // 2. 加密并设置新密码
+    user.setPassword(PasswordUtil.encode(request.getNewPassword()));
+    userRepository.save(user);
+    }
+
+
     //校验验证码（Lua 脚本原子操作，防止并发重复使用）
     @Override
     public void verifyCaptcha(String captchaKey, String captchaText) {

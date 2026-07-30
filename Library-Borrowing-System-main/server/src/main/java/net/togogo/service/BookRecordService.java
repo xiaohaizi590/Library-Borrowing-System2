@@ -10,11 +10,11 @@ import net.togogo.dto.PageResponse;
 
 public interface BookRecordService {
 
-      BorrowRecordDTO borrowBook(BorrowRequest request);
+    BorrowRecordDTO borrowBook(BorrowRequest request);
     BorrowRecordDTO returnBook(Long recordId);
     BorrowRecordDTO renewBook(Long recordId);
     PageResponse<BorrowRecordDTO> getBorrowRecordsByUser(Long userId, Pageable pageable);
-    List<BorrowRecordDTO> getBorrowRecordsByBook(Long bookId);
+    PageResponse<BorrowRecordDTO> getBorrowRecordsByBook(Long bookId, Pageable pageable);
     PageResponse<BorrowRecordDTO> getOverdueRecords(Pageable pageable);
     PageResponse<BorrowRecordDTO> getAllBorrowRecords(Pageable pageable);
     

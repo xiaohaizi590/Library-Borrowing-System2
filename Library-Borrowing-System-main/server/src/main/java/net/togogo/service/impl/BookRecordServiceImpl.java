@@ -3,11 +3,13 @@ package net.togogo.service.impl;
 import lombok.RequiredArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -31,14 +33,14 @@ import net.togogo.service.BookRecordService;
 @Service
 @RequiredArgsConstructor
 public class BookRecordServiceImpl implements BookRecordService {
-private final BookRepository bookRepository;
+    private final BookRepository bookRepository;
     private final BorrowRecordRepository borrowRecordRepository;
     private final UserRepository userRepository;
-@Override
+
+    @Override
     @Transactional
     @CacheEvict(value = {"borrowRecords", "books", "books:all", "books:search"}, allEntries = true)
     public BorrowRecordDTO borrowBook(BorrowRequest request) {
-        // 从 SecurityContext 中获取当前登录用户
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User currentUser = userRepository.findByUsername(username)
                 .orElseThrow(() -> new BusinessException(ResultCode.USER_NOT_FOUND));
@@ -75,7 +77,8 @@ private final BookRepository bookRepository;
         BorrowRecord saved = borrowRecordRepository.save(record);
         return BorrowRecordMapper.toDTO(saved, book.getTitle(), book.getAuthor(), currentUser.getUsername());
     }
-      @Override
+
+    @Override
     @Transactional
     @CacheEvict(value = {"borrowRecords", "books", "books:all", "books:search"}, allEntries = true)
     public BorrowRecordDTO returnBook(Long recordId) {
@@ -129,65 +132,76 @@ private final BookRepository bookRepository;
         return BorrowRecordMapper.toDTO(saved, bookTitle, bookAuthor, borrowerName);
     }
 
+    /**
+     * 批量查询 book/user 并组装 DTO，消除 N+1 问题
+     */
+    private List<BorrowRecordDTO> assembleWithBatchQuery(List<BorrowRecord> records) {
+        // 收集所有 bookId 和 userId
+        List<Long> bookIds = records.stream()
+                .map(BorrowRecord::getBookId)
+                .distinct()
+                .collect(Collectors.toList());
+        List<Long> userIds = records.stream()
+                .map(BorrowRecord::getUserId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        // 两次批量查询取代 N*2 次单条查询
+        Map<Long, Book> bookMap = bookRepository.findAllById(bookIds).stream()
+                .collect(Collectors.toMap(Book::getId, b -> b));
+        Map<Long, User> userMap = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+
+        // 内存组装
+        return records.stream().map(record -> {
+            Book book = bookMap.get(record.getBookId());
+            String title = book != null ? book.getTitle() : "未知";
+            String author = book != null ? book.getAuthor() : "未知";
+            User user = userMap.get(record.getUserId());
+            String username = user != null ? user.getUsername() : "未知";
+            return BorrowRecordMapper.toDTO(record, title, author, username);
+        }).collect(Collectors.toList());
+    }
+
     @Override
     @Cacheable(value = "borrowRecords", key = "'user:' + #userId + '-' + #pageable.pageNumber + '-' + #pageable.pageSize")
     public PageResponse<BorrowRecordDTO> getBorrowRecordsByUser(Long userId, Pageable pageable) {
-        Page<BorrowRecordDTO> page = borrowRecordRepository.findByUserId(userId, pageable)
-                .map(record -> {
-                    Book b = bookRepository.findById(record.getBookId()).orElse(null);
-                    String title = b != null ? b.getTitle() : "未知";
-                    String author = b != null ? b.getAuthor() : "未知";
-                    User u = userRepository.findById(record.getUserId()).orElse(null);
-                    String uname = u != null ? u.getUsername() : "未知";
-                    return BorrowRecordMapper.toDTO(record, title, author, uname);
-                });
-        return PageResponse.from(page);
+        // 先分页查出借阅记录，再批量查询关联的 book 和 user（消除 N+1）
+        Page<BorrowRecord> page = borrowRecordRepository.findByUserId(userId, pageable);
+        List<BorrowRecordDTO> dtoList = assembleWithBatchQuery(page.getContent());
+        Page<BorrowRecordDTO> dtoPage = new PageImpl<>(dtoList, pageable, page.getTotalElements());
+        return PageResponse.from(dtoPage);
     }
 
     @Override
     @Cacheable(value = "borrowRecords", key = "'book:' + #bookId")
     public List<BorrowRecordDTO> getBorrowRecordsByBook(Long bookId) {
-        Book book = bookRepository.findById(bookId)
-                .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND));
-
-        return borrowRecordRepository.findByBookIdOrderByBorrowTimeDesc(bookId).stream()
-                .map(record -> {
-                    User user = userRepository.findById(record.getUserId()).orElse(null);
-                    String username = user != null ? user.getUsername() : "未知";
-                    return BorrowRecordMapper.toDTO(record, book.getTitle(), book.getAuthor(), username);
-                })
-                .collect(Collectors.toList());
+        //分页
+        Page<BorrowRecord> page = borrowRecordRepository.findByBookIdOrderByBorrowTimeDesc(bookId, pageable);
+        List<BorrowRecordDTO> dtoList = assembleWithBatchQuery(page.getContent());
+        Page<BorrowRecordDTO> dtoPage = new PageImpl<>(dtoList, pageable, page.getTotalElements());
+        return PageResponse.from(dtoPage);
     }
 
     @Override
     @Cacheable(value = "borrowRecords", key = "'overdue:' + #pageable.pageNumber + '-' + #pageable.pageSize")
     public PageResponse<BorrowRecordDTO> getOverdueRecords(Pageable pageable) {
-        Page<BorrowRecordDTO> page = borrowRecordRepository.findByStatusAndDueTimeBefore(
-                BorrowRecord.Borrowstatus.BORROWED, LocalDateTime.now(), pageable)
-                .map(record -> {
-                    Book book = bookRepository.findById(record.getBookId()).orElse(null);
-                    String title = book != null ? book.getTitle() : "未知";
-                    String author = book != null ? book.getAuthor() : "未知";
-                    User user = userRepository.findById(record.getUserId()).orElse(null);
-                    String username = user != null ? user.getUsername() : "未知";
-                    return BorrowRecordMapper.toDTO(record, title, author, username);
-                });
-        return PageResponse.from(page);
+        // 查出逾期记录后，批量查询 book 和 user（消除 N+1）
+        Page<BorrowRecord> page = borrowRecordRepository.findByStatusAndDueTimeBefore(
+                BorrowRecord.Borrowstatus.BORROWED, LocalDateTime.now(), pageable);
+        List<BorrowRecordDTO> dtoList = assembleWithBatchQuery(page.getContent());
+        Page<BorrowRecordDTO> dtoPage = new PageImpl<>(dtoList, pageable, page.getTotalElements());
+        return PageResponse.from(dtoPage);
     }
 
     @Override
     @Cacheable(value = "borrowRecords", key = "'all:' + #pageable.pageNumber + '-' + #pageable.pageSize")
     public PageResponse<BorrowRecordDTO> getAllBorrowRecords(Pageable pageable) {
-        Page<BorrowRecordDTO> page = borrowRecordRepository.findAll(pageable)
-                .map(record -> {
-                    Book book = bookRepository.findById(record.getBookId()).orElse(null);
-                    String title = book != null ? book.getTitle() : "未知";
-                    String author = book != null ? book.getAuthor() : "未知";
-                    User user = userRepository.findById(record.getUserId()).orElse(null);
-                    String username = user != null ? user.getUsername() : "未知";
-                    return BorrowRecordMapper.toDTO(record, title, author, username);
-                });
-        return PageResponse.from(page);
+        // 查出全部借阅记录后，批量查询 book 和 user（消除 N+1）
+        Page<BorrowRecord> page = borrowRecordRepository.findAll(pageable);
+        List<BorrowRecordDTO> dtoList = assembleWithBatchQuery(page.getContent());
+        Page<BorrowRecordDTO> dtoPage = new PageImpl<>(dtoList, pageable, page.getTotalElements());
+        return PageResponse.from(dtoPage);
     }
 
 }

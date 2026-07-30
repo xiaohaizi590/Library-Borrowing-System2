@@ -27,6 +27,7 @@ public class Result <T> {  //泛型类，T表示返回的数据类型
     public static <T> Result<T> success(String message, T data) {
         return new Result<>(ResultCode.SUCCESS.getCode(), message, data);
     }
+    
 
     public static <T> Result<T> error(ResultCode resultCode) {
         return new Result<>(resultCode.getCode(), resultCode.getMessage(), null);

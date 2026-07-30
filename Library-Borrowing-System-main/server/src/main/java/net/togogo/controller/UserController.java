@@ -21,6 +21,7 @@ import jakarta.servlet.http.HttpServletRequest;
 @RequiredArgsConstructor
 public class UserController {
     private final UserService userService;
+   
 
 
     @PostMapping("/register")
@@ -69,6 +70,8 @@ public class UserController {
     public Result<PageResponse<UserDTO>> getAllUsers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
+        page = Math.max(0, Math.min(page, 100));
+        size = Math.max(1, Math.min(size, 100));
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createTime"));
         PageResponse<UserDTO> users = userService.getAllUsers(pageable);
         return Result.success(users);
@@ -118,6 +121,32 @@ public class UserController {
         return Result.success();
     }
 
+    @GetMapping("/recycleBin")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result<PageResponse<UserDTO>> getDeletedUsers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        page = Math.max(0, Math.min(page, 100));
+        size = Math.max(1, Math.min(size, 100));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createTime"));
+        PageResponse<UserDTO> users = userService.getDeletedUsers(pageable);
+        return Result.success(users);
+    }
+
+    @PutMapping("/restore/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result<UserDTO> restoreUser(@PathVariable Long id) {
+        UserDTO userDTO = userService.restoreUser(id);
+        return Result.success("恢复成功", userDTO);
+    }
+
+    @DeleteMapping("/cleanExpired")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result<Void> cleanExpiredUsers(@RequestParam(defaultValue = "30") int retentionDays) {
+        userService.cleanExpiredUsers(retentionDays);
+        return Result.success();
+    }
+
     @GetMapping("/profile")
     @PreAuthorize("isAuthenticated()")
     public Result<UserDTO> getCurrentUserProfile() {
@@ -144,5 +173,19 @@ public class UserController {
        userService.verifyCaptcha(captchaKey, inputCaptcha);
         return Result.success("验证成功", true);
     }
+    @PutMapping("/password")
+    @PreAuthorize("isAuthenticated()")
+    public Result<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+    userService.changePassword(request);
+    return Result.error(200, "密码修改失败");
+    }
+    @PutMapping("/{id}/password")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result<Void> resetPassword(@PathVariable Long id,
+                                   @Valid @RequestBody ResetPasswordRequest request) {
+    userService.resetPassword(id, request);
+    return Result.error(200, "密码重置失败");
+    }
+
 
 }
