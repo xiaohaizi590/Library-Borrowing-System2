@@ -175,9 +175,9 @@ public class BookRecordServiceImpl implements BookRecordService {
 
     @Override
     @Cacheable(value = "borrowRecords", key = "'book:' + #bookId")
-    public List<BorrowRecordDTO> getBorrowRecordsByBook(Long bookId) {
+    public PageResponse<BorrowRecordDTO> getBorrowRecordsByBook(Long bookId, Pageable pageable) {
         //分页
-        Page<BorrowRecord> page = borrowRecordRepository.findByBookIdOrderByBorrowTimeDesc(bookId, pageable);
+        Page<BorrowRecord> page = borrowRecordRepository.findByBookId(bookId, pageable);
         List<BorrowRecordDTO> dtoList = assembleWithBatchQuery(page.getContent());
         Page<BorrowRecordDTO> dtoPage = new PageImpl<>(dtoList, pageable, page.getTotalElements());
         return PageResponse.from(dtoPage);
