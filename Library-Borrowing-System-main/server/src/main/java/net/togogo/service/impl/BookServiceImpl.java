@@ -198,6 +198,8 @@ public class BookServiceImpl implements BookService {
                     "解析完成，共 " + books.size() + " 条，开始导入...", 10, java.util.concurrent.TimeUnit.MINUTES);
 
             Integer insertedCount = transactionTemplate.execute(status -> {
+                // 清理可能残留的临时表（MySQL 临时表生命周期绑定连接而非事务，异常回滚不会自动清理）
+                jdbcTemplate.execute("DROP TEMPORARY TABLE IF EXISTS t_book_temp");
                 jdbcTemplate.execute("CREATE TEMPORARY TABLE t_book_temp LIKE t_book");
                 jdbcTemplate.execute("ALTER TABLE t_book_temp DROP PRIMARY KEY, MODIFY id BIGINT NOT NULL");
 
