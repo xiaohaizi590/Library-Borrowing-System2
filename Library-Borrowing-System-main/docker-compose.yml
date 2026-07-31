@@ -15,8 +15,8 @@ services:
       - mysql-data:/var/lib/mysql
       - ./init_books.sql:/docker-entrypoint-initdb.d/01-init-books.sql
     command: >
-      --innodb-buffer-pool-size=128M
-      --innodb-log-buffer-size=8M
+      --innodb-buffer-pool-size=256M
+      --innodb-log-buffer-size=16M
       --max-connections=20
       --innodb-flush-log-at-trx-commit=2
     healthcheck:
@@ -27,7 +27,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 300M
+          memory: 512M
 
   # ==================== Redis 缓存 ====================
   redis:
@@ -61,7 +61,7 @@ services:
       DB_PASSWORD: 123456
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JAVA_TOOL_OPTIONS: "-Xmx128m -Xms64m"
+      JAVA_TOOL_OPTIONS: "-Xmx256m -Xms128m"
     depends_on:
       mysql:
         condition: service_healthy
@@ -70,7 +70,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 512M
 
   # ==================== Nginx 前端 ====================
   frontend:
