@@ -22,7 +22,7 @@ public interface BookService {
     void cleanExpiredBooks(int retentionDays);
     int batchImportFromExcel(MultipartFile file);
 
-    String batchImportAsync(byte[] fileBytes, String originalFilename, String taskId);
+    void batchImportAsync(byte[] fileBytes, String originalFilename, String taskId);
 
     String getImportProgress(String taskId);
 

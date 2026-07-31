@@ -185,7 +185,7 @@ public class BookServiceImpl implements BookService {
 
     @Override
     @Async("asyncExecutor")
-    public String batchImportAsync(byte[] fileBytes, String originalFilename, String taskId) {
+    public void batchImportAsync(byte[] fileBytes, String originalFilename, String taskId) {
         try {
             redisTemplate.opsForValue().set("import:progress:" + taskId, "解析中...", 10, java.util.concurrent.TimeUnit.MINUTES);
 
@@ -217,7 +217,6 @@ public class BookServiceImpl implements BookService {
             String result = "成功导入 " + insertedCount + " 条";
             redisTemplate.opsForValue().set("import:result:" + taskId, result, 10, java.util.concurrent.TimeUnit.MINUTES);
             redisTemplate.opsForValue().set("import:progress:" + taskId, result, 10, java.util.concurrent.TimeUnit.MINUTES);
-            return result;
 
         } catch (Exception e) {
             String errorMsg = "导入失败: " + e.getMessage();
