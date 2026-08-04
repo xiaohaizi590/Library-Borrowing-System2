@@ -200,8 +200,20 @@ public class BookServiceImpl implements BookService {
             Integer insertedCount = transactionTemplate.execute(status -> {
                 // 清理可能残留的临时表（MySQL 临时表生命周期绑定连接而非事务，异常回滚不会自动清理）
                 jdbcTemplate.execute("DROP TEMPORARY TABLE IF EXISTS t_book_temp");
-                jdbcTemplate.execute("CREATE TEMPORARY TABLE t_book_temp LIKE t_book");
-                jdbcTemplate.execute("ALTER TABLE t_book_temp DROP PRIMARY KEY, MODIFY id BIGINT NOT NULL");
+                // 显式建临时表：不带主键/自增/唯一索引，避免"id 无默认值"和"文件内 ISBN 重复"两个问题
+                jdbcTemplate.execute(
+                        "CREATE TEMPORARY TABLE t_book_temp (" +
+                        "id BIGINT NOT NULL DEFAULT 0, " +
+                        "title VARCHAR(200) NOT NULL, " +
+                        "author VARCHAR(100) NOT NULL, " +
+                        "isbn VARCHAR(50), " +
+                        "publisher VARCHAR(100), " +
+                        "publish_date DATETIME, " +
+                        "category VARCHAR(50), " +
+                        "description TEXT, " +
+                        "stock INT NOT NULL, " +
+                        "available INT NOT NULL" +
+                        ") ENGINE=InnoDB");
 
                 batchInsertToTemp(books);
 
