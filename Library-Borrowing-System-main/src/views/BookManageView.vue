@@ -8,14 +8,59 @@
         <Plus class="w-4 h-4" />
         <span>添加图书</span>
       </button>
-      <button
-        @click="handleBatchImport"
-        class="flex items-center space-x-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
-      >
-        <Upload class="w-4 h-4" />
-        <span>Excel文件批量导入图书</span>
-      </button>
     </PageHeader>
+
+    <!-- Excel批量导入按钮 - 固定在右下角 -->
+    <button
+      @click="handleBatchImport"
+      class="fixed bottom-6 right-6 flex items-center space-x-2 px-5 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 shadow-lg z-40"
+    >
+      <Upload class="w-5 h-5" />
+      <span>Excel文件批量导入图书</span>
+    </button>
+
+    <!-- 搜索栏 -->
+    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+      <div class="flex flex-wrap gap-4">
+        <div class="flex-1 min-w-[200px]">
+          <label class="block text-sm font-medium text-gray-700 mb-2">搜索类型</label>
+          <select
+            v-model="searchType"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="title">按书名</option>
+            <option value="author">按作者</option>
+            <option value="category">按分类</option>
+          </select>
+        </div>
+        <div class="flex-1 min-w-[200px]">
+          <label class="block text-sm font-medium text-gray-700 mb-2">搜索关键词</label>
+          <div class="relative">
+            <input
+              v-model="searchKeyword"
+              type="text"
+              :placeholder="'输入' + (searchType === 'title' ? '书名' : searchType === 'author' ? '作者' : '分类') + '...'"
+              class="w-full pl-4 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              @keyup.enter="handleSearch"
+            />
+          </div>
+        </div>
+        <div class="flex items-end gap-2">
+          <button
+            @click="handleSearch"
+            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            <Search class="w-4 h-4" />
+          </button>
+          <button
+            @click="handleReset"
+            class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+          >
+            <RotateCcw class="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
 
     <LoadingSpinner v-if="loading" />
 
@@ -226,8 +271,8 @@
 
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
-import { Plus, Upload } from 'lucide-vue-next'
-import { getAllBooks, createBook, updateBook, deleteBook, batchImportFromExcel, batchImportFromExcelAsync, getImportProgress } from '../services/bookService'
+import { Plus, Upload, Search, RotateCcw } from 'lucide-vue-next'
+import { getAllBooks, createBook, updateBook, deleteBook, batchImportFromExcel, batchImportFromExcelAsync, getImportProgress, searchByTitle, searchByAuthor, searchByCategory } from '../services/bookService'
 import PageHeader from '../components/PageHeader.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import Pagination from '../components/Pagination.vue'
@@ -253,10 +298,29 @@ const form = reactive({
   description: ''
 })
 
+// 搜索相关
+const searchKeyword = ref('')
+const searchType = ref('title') // title | author | category
+
 async function fetchBooks(page = 0) {
   loading.value = true
   try {
-    const response = await getAllBooks(page, 10)
+    let response
+    if (searchKeyword.value.trim()) {
+      const keyword = searchKeyword.value.trim()
+      switch (searchType.value) {
+        case 'author':
+          response = await searchByAuthor(keyword, page, 10)
+          break
+        case 'category':
+          response = await searchByCategory(keyword, page, 10)
+          break
+        default:
+          response = await searchByTitle(keyword, page, 10)
+      }
+    } else {
+      response = await getAllBooks(page, 10)
+    }
     
     if (response.code === 200) {
       books.value = response.data.content
@@ -268,6 +332,16 @@ async function fetchBooks(page = 0) {
   } finally {
     loading.value = false
   }
+}
+
+function handleSearch() {
+  fetchBooks(0)
+}
+
+function handleReset() {
+  searchKeyword.value = ''
+  searchType.value = 'title'
+  fetchBooks(0)
 }
 
 function prevPage() {

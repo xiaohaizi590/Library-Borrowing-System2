@@ -16,7 +16,7 @@ public class DataInitializer {
             if (userRepository.count() == 0) {//表示无用户时，初始化一个管理员和一个普通用户
                 User admin = User.builder()
                         .username("admin")
-                        .password(PasswordUtil.encode("admin123"))
+                        .password(PasswordUtil.encode("admin123."))
                         .phone("13800138000")
                         .role(User.Role.ADMIN)
                         .build();

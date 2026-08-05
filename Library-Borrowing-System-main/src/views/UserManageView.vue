@@ -2,6 +2,49 @@
   <div>
     <PageHeader title="用户管理" />
 
+    <!-- 搜索栏 -->
+    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+      <div class="flex flex-wrap gap-4">
+        <div class="flex-1 min-w-[200px]">
+          <label class="block text-sm font-medium text-gray-700 mb-2">搜索类型</label>
+          <select
+            v-model="searchType"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="username">按用户名</option>
+           <!--  <option value="email">按邮箱</option>-->
+            <!--  <option value="phone">按手机号</option>-->
+          </select>
+        </div>
+        <div class="flex-1 min-w-[200px]">
+          <label class="block text-sm font-medium text-gray-700 mb-2">搜索关键词</label>
+          <div class="relative">
+            <input
+              v-model="searchKeyword"
+              type="text"
+              :placeholder="'输入' + (searchType === 'username' ? '用户名' : searchType === 'email' ? '邮箱' : '手机号') + '...'"
+              class="w-full pl-4 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              @keyup.enter="handleSearch"
+            />
+          </div>
+        </div>
+        <div class="flex items-end gap-2">
+          <button
+            @click="handleSearch"
+            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            <Search class="w-4 h-4" />
+          </button>
+          <button
+            @click="handleReset"
+            class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+          >
+            <RotateCcw class="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+
     <LoadingSpinner v-if="loading" />
 
     <div v-else class="bg-white rounded-lg shadow-sm overflow-hidden">
@@ -77,7 +120,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getAllUsers, deleteUser, resetPassword } from '../services/userService'
+import { Search, RotateCcw } from 'lucide-vue-next'
+import { getAllUsers, deleteUser, resetPassword, getUserByUsername } from '../services/userService'
 import Modal from '../components/Modal.vue'
 import PageHeader from '../components/PageHeader.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
@@ -94,6 +138,10 @@ const users = ref([])
 const currentPage = ref(0)
 const totalPages = ref(0)
 
+// 搜索相关
+const searchKeyword = ref('')
+const searchType = ref('username') // username | email | phone
+
 async function fetchUsers(page = 0) {
   loading.value = true
   try {
@@ -109,6 +157,38 @@ async function fetchUsers(page = 0) {
   } finally {
     loading.value = false
   }
+}
+
+function handleSearch() {
+  if (!searchKeyword.value.trim()) {
+    fetchUsers(0)
+    return
+  }
+
+  if (searchType.value === 'username') {
+    // 支持按用户名精确搜索（已有 API）
+    getUserByUsername(searchKeyword.value.trim()).then(response => {
+      if (response.code === 200) {
+        users.value = [response.data]
+        currentPage.value = 0
+        totalPages.value = 1
+      } else {
+        alert(response.message || '未找到该用户')
+      }
+    }).catch(err => {
+      alert(err.response?.data?.message || '查询失败')
+    })
+  } else {
+    // TODO: email/phone 搜索待后端 API 实现
+    alert('邮箱和手机号搜索功能待后端 API 对接后生效，当前仅支持用户名搜索')
+    fetchUsers(0)
+  }
+}
+
+function handleReset() {
+  searchKeyword.value = ''
+  searchType.value = 'username'
+  fetchUsers(0)
 }
 
 function prevPage() {

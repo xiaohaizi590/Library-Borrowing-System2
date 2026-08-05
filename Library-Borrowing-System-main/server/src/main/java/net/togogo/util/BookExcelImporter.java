@@ -2,6 +2,7 @@ package net.togogo.util;
 
 import net.togogo.dto.CreateBookRequest;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -30,10 +31,20 @@ public class BookExcelImporter {
 
     /**
      * 解析 Excel 输入流，返回图书请求列表（仅包含书名和作者均非空的记录）
+     * 支持 .xlsx 和 .xls 格式
      */
     private static List<CreateBookRequest> parseBooks(InputStream inputStream) {
         List<CreateBookRequest> books = new ArrayList<>();
-        try (Workbook workbook = new XSSFWorkbook(inputStream)) { // 支持 .xlsx
+        Workbook workbook = null;
+        try {
+            // 判断是 .xlsx 还是 .xls 并创建对应的 Workbook 实例
+            byte[] bytes = inputStream.readAllBytes();
+            if (hasPOIFSHeader(bytes)) {
+                workbook = new HSSFWorkbook(new java.io.ByteArrayInputStream(bytes)); // .xls 格式
+            } else {
+                workbook = new XSSFWorkbook(new java.io.ByteArrayInputStream(bytes)); // .xlsx 格式
+            }
+
             Sheet sheet = workbook.getSheetAt(0); // 取第一个工作表
 
             // 1. 读取表头行（第一行），建立列索引 → 字段名的映射
@@ -77,8 +88,23 @@ public class BookExcelImporter {
             }
         } catch (Exception e) {
             throw new RuntimeException("Excel 解析失败: " + e.getMessage(), e);
+        } finally {
+            try {
+                workbook.close();
+            } catch (IOException e) {
+                // ignore
+            }
         }
         return books;
+    }
+
+    /**
+     * 判断字节数组是否是 .xls (POIFS/BI2) 格式
+     */
+    private static boolean hasPOIFSHeader(byte[] bytes) {
+        return bytes.length >= 4 && 
+               ((bytes[0] & 0xFF) == 0xD0 && (bytes[1] & 0xFF) == 0xCF && 
+                (bytes[2] & 0xFF) == 0x11 && (bytes[3] & 0xFF) == 0xE0);
     }
 
     // ========== 辅助方法 ==========

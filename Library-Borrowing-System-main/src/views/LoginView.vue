@@ -122,6 +122,12 @@ async function loadCaptcha() {
   }
 }
 
+// 刷新验证码并清空输入框
+async function refreshCaptcha() {
+  form.captcha = ''
+  await loadCaptcha()
+}
+
 async function handleLogin() {
   loading.value = true
   error.value = ''
@@ -135,9 +141,17 @@ async function handleLogin() {
       router.push('/')
     } else {
       error.value = response.message || '登录失败'
+      // 后端每次登录都会消耗验证码，登录失败后验证码已失效，自动刷新并清空输入
+      await refreshCaptcha()
     }
   } catch (err) {
-    error.value = err.response?.data?.message || '登录失败，请检查网络'
+    const errorMessage = err.response?.data?.message || '登录失败，请检查网络'
+    error.value = errorMessage
+
+    // 业务错误（有后端返回）时验证码已失效，自动刷新；网络错误则仅提示
+    if (err.response) {
+      await refreshCaptcha()
+    }
   } finally {
     loading.value = false
   }

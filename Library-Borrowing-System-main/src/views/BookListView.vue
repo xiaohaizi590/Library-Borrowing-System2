@@ -70,7 +70,8 @@
       <div
         v-for="book in books"
         :key="book.id"
-        class="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow"
+        class="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer"
+        @click="viewBookDetails(book)"
       >
         <div class="h-48 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
           <BookOpen class="w-16 h-16 text-gray-400" />
@@ -80,7 +81,7 @@
         <p class="text-sm text-gray-500 mb-1">分类: {{ book.category || '未分类' }}</p>
         <p class="text-sm text-gray-500 mb-3">库存: {{ book.stock }} / 可借: {{ book.available }}</p>
         <button
-          @click="handleBorrow(book)"
+          @click.stop="handleBorrow(book)"
           :disabled="book.available <= 0 || borrowLoading"
           class="w-full py-2 px-4 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
         >
@@ -126,13 +127,40 @@
         </button>
       </div>
     </Modal>
+
+    <!-- 图书详情模态框 -->
+    <Modal :visible="showBookDetails" title="图书详情" @close="showBookDetails = false">
+      <div v-if="selectedBook" class="space-y-4">
+        <div class="flex items-center space-x-4">
+          <div class="h-32 w-24 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <BookOpen class="w-12 h-12 text-gray-400" />
+          </div>
+          <div class="flex-1">
+            <h3 class="text-xl font-bold text-gray-800">{{ selectedBook.title }}</h3>
+            <p class="text-gray-600">作者: {{ selectedBook.author }}</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div><span class="font-medium text-gray-700">ISBN:</span> {{ selectedBook.isbn || '暂无' }}</div>
+          <div><span class="font-medium text-gray-700">出版社:</span> {{ selectedBook.publisher || '暂无' }}</div>
+          <div><span class="font-medium text-gray-700">分类:</span> {{ selectedBook.category || '未分类' }}</div>
+          <div><span class="font-medium text-gray-700">出版日期:</span> {{ formatDate(selectedBook.publishDate) || '暂无' }}</div>
+          <div><span class="font-medium text-gray-700">库存:</span> {{ selectedBook.stock }}</div>
+          <div><span class="font-medium text-gray-700">可借:</span> {{ selectedBook.available }}</div>
+        </div>
+        <div>
+          <h4 class="font-medium text-gray-700 mb-2">简介</h4>
+          <p class="text-gray-600 text-sm leading-relaxed">{{ selectedBook.description || '暂无简介' }}</p>
+        </div>
+      </div>
+    </Modal>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { Search, RotateCcw, BookOpen } from 'lucide-vue-next'
-import { getAllBooks, searchByTitle, searchByAuthor, searchByCategory, borrowBook } from '../services/bookService'
+import { getAllBooks, searchByTitle, searchByAuthor, searchByCategory, borrowBook, getBookById } from '../services/bookService'
 import PageHeader from '../components/PageHeader.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import EmptyState from '../components/EmptyState.vue'
@@ -145,6 +173,7 @@ const books = ref([])
 const currentPage = ref(0)
 const totalPages = ref(0)
 const showBorrowDialog = ref(false)
+const showBookDetails = ref(false)
 const selectedBook = ref(null)
 const borrowDays = ref(7)
 const borrowError = ref('')
@@ -179,6 +208,13 @@ async function fetchBooks(page = 0) {
   }
 }
 
+// 格式化日期函数
+function formatDate(dateString) {
+  if (!dateString) return null
+  const date = new Date(dateString)
+  return date.toLocaleDateString('zh-CN')
+}
+
 function handleSearch() {
   fetchBooks(0)
 }
@@ -207,6 +243,29 @@ function handleBorrow(book) {
   borrowDays.value = 7
   borrowError.value = ''
   showBorrowDialog.value = true
+}
+
+// 查看图书详情
+async function viewBookDetails(book) {
+  try {
+    // 如果图书对象已经有完整信息，则直接显示
+    if (book.description && book.isbn) {
+      selectedBook.value = book
+      showBookDetails.value = true
+    } else {
+      // 否则调用API获取完整信息
+      const response = await getBookById(book.id)
+      if (response.code === 200) {
+        selectedBook.value = response.data
+        showBookDetails.value = true
+      }
+    }
+  } catch (err) {
+    console.error('获取图书详情失败:', err)
+    // 如果API调用失败，仍然显示已有信息
+    selectedBook.value = book
+    showBookDetails.value = true
+  }
 }
 
 async function confirmBorrow() {
